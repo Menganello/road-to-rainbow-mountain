@@ -99,46 +99,6 @@ export function Settings() {
           </div>
         </section>
 
-        <section className="space-y-3 rounded-3xl bg-white p-5 shadow-chunky">
-          <p className="font-display text-xs text-rainbow-blue">REMINDERS</p>
-          <label className="flex items-center justify-between text-sm text-rainbow-blue">
-            Day before
-            <input
-              type="checkbox"
-              checked={settings.reminderDayBefore}
-              onChange={(e) => {
-                setSaved(false);
-                setSettings({ ...settings, reminderDayBefore: e.target.checked });
-              }}
-              className="h-5 w-5 accent-rainbow-purple"
-            />
-          </label>
-          <label className="flex items-center justify-between text-sm text-rainbow-blue">
-            Same day
-            <input
-              type="checkbox"
-              checked={settings.reminderSameDay}
-              onChange={(e) => {
-                setSaved(false);
-                setSettings({ ...settings, reminderSameDay: e.target.checked });
-              }}
-              className="h-5 w-5 accent-rainbow-purple"
-            />
-          </label>
-          <label className="flex items-center justify-between text-sm text-rainbow-blue">
-            Reminder time
-            <input
-              type="time"
-              value={settings.reminderTime}
-              onChange={(e) => {
-                setSaved(false);
-                setSettings({ ...settings, reminderTime: e.target.value });
-              }}
-              className="rounded-lg border border-rainbow-blue/10 px-2 py-1"
-            />
-          </label>
-        </section>
-
         <Button tone="turquoise" onClick={handleSave} disabled={settings.preferredDays.length !== 3}>
           {saved ? "SAVED ✓" : "SAVE SETTINGS"}
         </Button>
