@@ -1,0 +1,22 @@
+import { useId } from "react";
+
+export function RainbowMountainMark({ size = 48 }: { size?: number }) {
+  const clipId = useId();
+  return (
+    <svg width={size} height={size} viewBox="0 0 64 64" role="img" aria-label="Road to Rainbow Mountain">
+      <rect width="64" height="64" rx="14" fill="#1B3A6B" />
+      <circle cx="47" cy="17" r="6" fill="#FFD23F" />
+      <clipPath id={clipId}>
+        <path d="M2 52 L22 16 L34 34 L44 20 L62 52 Z" />
+      </clipPath>
+      <g clipPath={`url(#${clipId})`}>
+        <rect x="0" y="14" width="64" height="8" fill="#F5E6CA" />
+        <rect x="0" y="22" width="64" height="6" fill="#FF6FA5" />
+        <rect x="0" y="28" width="64" height="6" fill="#8B5CF6" />
+        <rect x="0" y="34" width="64" height="6" fill="#FF8C42" />
+        <rect x="0" y="40" width="64" height="6" fill="#2EC4B6" />
+        <rect x="0" y="46" width="64" height="10" fill="#F5E6CA" />
+      </g>
+    </svg>
+  );
+}

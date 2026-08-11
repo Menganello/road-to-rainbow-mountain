@@ -1,0 +1,45 @@
+@import "tailwindcss";
+@import "@fontsource/press-start-2p";
+@import "@fontsource/nunito/400.css";
+@import "@fontsource/nunito/600.css";
+@import "@fontsource/nunito/800.css";
+
+@theme {
+  --color-rainbow-pink: #ff6fa5;
+  --color-rainbow-purple: #8b5cf6;
+  --color-rainbow-orange: #ff8c42;
+  --color-rainbow-yellow: #ffd23f;
+  --color-rainbow-turquoise: #2ec4b6;
+  --color-rainbow-blue: #1b3a6b;
+  --color-rainbow-beige: #f5e6ca;
+
+  --font-display: "Press Start 2P", cursive;
+  --font-body: "Nunito", sans-serif;
+
+  --shadow-chunky: 4px 4px 0 0 rgba(27, 58, 107, 0.18);
+  --shadow-chunky-lg: 6px 6px 0 0 rgba(27, 58, 107, 0.18);
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--color-rainbow-beige);
+  color: var(--color-rainbow-blue);
+  overscroll-behavior-y: none;
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+button {
+  font-family: inherit;
+  touch-action: manipulation;
+}
+
+::selection {
+  background: var(--color-rainbow-yellow);
+}
