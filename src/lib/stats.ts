@@ -37,12 +37,12 @@ export function computeStreak(scheduled: ScheduledWorkout[], todayISO: string): 
 
 /** The real target: every workout is a step toward actually being there. */
 export const RAINBOW_MOUNTAIN_DATE = "2026-09-07";
-const PROGRESS_WINDOW_DAYS = 84; // ~12 weeks of lead-up shown on the progress bar
+/** 0% anchor — the day this countdown started. Fixed, not "today" (which would always read 0%). */
+const JOURNEY_START_DATE = "2026-08-11";
 
-/** 0% at (RAINBOW_MOUNTAIN_DATE - PROGRESS_WINDOW_DAYS), 100% on RAINBOW_MOUNTAIN_DATE itself. */
+/** 0% on JOURNEY_START_DATE, 100% on RAINBOW_MOUNTAIN_DATE, advancing linearly one day at a time. */
 export function mountainProgressPercent(todayISO: string): number {
-  const windowStart = addDays(RAINBOW_MOUNTAIN_DATE, -PROGRESS_WINDOW_DAYS);
-  const totalDays = daysBetween(windowStart, RAINBOW_MOUNTAIN_DATE);
-  const elapsed = daysBetween(windowStart, todayISO);
+  const totalDays = daysBetween(JOURNEY_START_DATE, RAINBOW_MOUNTAIN_DATE);
+  const elapsed = daysBetween(JOURNEY_START_DATE, todayISO);
   return Math.max(0, Math.min(100, (elapsed / totalDays) * 100));
 }

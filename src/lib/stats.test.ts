@@ -37,19 +37,22 @@ describe("computeStreak", () => {
 });
 
 describe("mountainProgressPercent", () => {
-  it("is 0% at the start of the 84-day window and 100% on the target date", () => {
-    expect(mountainProgressPercent("2026-06-15")).toBe(0); // 2026-09-07 minus 84 days
+  it("is 0% on the journey start date and 100% on the target date", () => {
+    expect(mountainProgressPercent("2026-08-11")).toBe(0);
     expect(mountainProgressPercent("2026-09-07")).toBe(100);
   });
 
-  it("clamps to 0 before the window and 100 after the target date", () => {
+  it("clamps to 0 before the start and 100 after the target date", () => {
     expect(mountainProgressPercent("2026-01-01")).toBe(0);
     expect(mountainProgressPercent("2026-12-25")).toBe(100);
   });
 
-  it("increases roughly linearly through the window", () => {
-    const mid = mountainProgressPercent("2026-07-27"); // ~42 days into the 84-day window
-    expect(mid).toBeGreaterThan(40);
-    expect(mid).toBeLessThan(60);
+  it("advances by roughly one day's worth of progress each day", () => {
+    const day0 = mountainProgressPercent("2026-08-11");
+    const day1 = mountainProgressPercent("2026-08-12");
+    const day2 = mountainProgressPercent("2026-08-13");
+    expect(day1).toBeGreaterThan(day0);
+    expect(day2).toBeGreaterThan(day1);
+    expect(day1 - day0).toBeCloseTo(day2 - day1, 5);
   });
 });
