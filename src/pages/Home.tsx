@@ -5,7 +5,7 @@ import { Button } from "../components/Button";
 import { ProgressBar } from "../components/ProgressBar";
 import { StreakBadge } from "../components/StreakBadge";
 import { dataSource } from "../lib/data";
-import { computeStreak, weeklyCount } from "../lib/stats";
+import { computeStreak, mountainProgressPercent, weeklyCount } from "../lib/stats";
 import { addDays, formatDayMonth, todayISO, weekdayLabel, isoWeekday } from "../lib/format";
 import { loadActiveSession } from "../lib/session";
 import { primeAudio } from "../lib/audio";
@@ -104,7 +104,7 @@ export function Home() {
   const week = weeklyCount(schedule, today);
   const streak = computeStreak(schedule, today);
   const totalWorkouts = schedule.filter((r) => r.status === "completed").length;
-  const progressPct = preferredCount > 0 ? (week.completed / preferredCount) * 100 : 0;
+  const progressPct = mountainProgressPercent(today);
 
   const nextEntry = [...schedule]
     .filter((r) => r.status === "planned" && r.date >= today)
@@ -192,7 +192,7 @@ export function Home() {
           )}
         </section>
 
-        <StreakBadge weeks={streak} totalWorkouts={totalWorkouts} />
+        <StreakBadge streak={streak} totalWorkouts={totalWorkouts} />
       </main>
     </div>
   );

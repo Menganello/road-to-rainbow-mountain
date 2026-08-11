@@ -1,5 +1,5 @@
 import type { ScheduledWorkout } from "../types";
-import { addDays, mondayOnOrBefore } from "./format";
+import { addDays, daysBetween, mondayOnOrBefore } from "./format";
 
 export interface WeekCount {
   completed: number;
@@ -18,19 +18,31 @@ export function weeklyCount(scheduled: ScheduledWorkout[], dateISO: string): Wee
 }
 
 /**
- * Counts consecutive fully-completed weeks walking backward from the week before `todayISO`
- * (the current, still-in-progress week is never counted toward the streak).
+ * Counts consecutive completed workouts walking backward from the most recent one that's
+ * already happened (today or earlier) — stops at the first missed one. A still-upcoming
+ * 'planned' workout is simply ignored (it hasn't happened yet, so it can't break the streak).
  */
 export function computeStreak(scheduled: ScheduledWorkout[], todayISO: string): number {
+  const happened = scheduled
+    .filter((r) => r.date <= todayISO && (r.status === "completed" || r.status === "missed"))
+    .sort((a, b) => (a.date < b.date ? 1 : -1));
+
   let streak = 0;
-  let cursor = addDays(mondayOnOrBefore(todayISO), -7);
-
-  while (true) {
-    const week = weeklyCount(scheduled, cursor);
-    if (week.total === 0 || week.completed < week.total) break;
+  for (const row of happened) {
+    if (row.status !== "completed") break;
     streak += 1;
-    cursor = addDays(cursor, -7);
   }
-
   return streak;
+}
+
+/** The real target: every workout is a step toward actually being there. */
+export const RAINBOW_MOUNTAIN_DATE = "2026-09-07";
+const PROGRESS_WINDOW_DAYS = 84; // ~12 weeks of lead-up shown on the progress bar
+
+/** 0% at (RAINBOW_MOUNTAIN_DATE - PROGRESS_WINDOW_DAYS), 100% on RAINBOW_MOUNTAIN_DATE itself. */
+export function mountainProgressPercent(todayISO: string): number {
+  const windowStart = addDays(RAINBOW_MOUNTAIN_DATE, -PROGRESS_WINDOW_DAYS);
+  const totalDays = daysBetween(windowStart, RAINBOW_MOUNTAIN_DATE);
+  const elapsed = daysBetween(windowStart, todayISO);
+  return Math.max(0, Math.min(100, (elapsed / totalDays) * 100));
 }

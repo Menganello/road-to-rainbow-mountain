@@ -20,6 +20,12 @@ export function addDays(iso: string, days: number): string {
   return toISODate(date);
 }
 
+/** Whole days from `aISO` to `bISO` (positive when b is later). */
+export function daysBetween(aISO: string, bISO: string): number {
+  const msPerDay = 24 * 60 * 60 * 1000;
+  return Math.round((fromISODate(bISO).getTime() - fromISODate(aISO).getTime()) / msPerDay);
+}
+
 /** ISO weekday: 1=Monday .. 7=Sunday (JS getDay() is 0=Sunday, so we shift it). */
 export function isoWeekday(iso: string): ISOWeekday {
   const day = fromISODate(iso).getDay();
