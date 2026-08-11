@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { AuthProvider, useAuth } from "./lib/auth/demoAuth";
+import { AuthProvider, useAuth } from "./lib/auth";
 import { BottomNav } from "./components/BottomNav";
 import { Login } from "./pages/Login";
 import { Home } from "./pages/Home";

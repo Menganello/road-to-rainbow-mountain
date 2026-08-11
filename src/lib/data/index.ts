@@ -1,7 +1,8 @@
+import { isSupabaseConfigured } from "../supabase";
 import { demoSource } from "./demoSource";
+import { supabaseSource } from "./supabaseSource";
 import type { DataSource } from "./types";
 
-// Phase 2 swaps this for supabaseSource once Supabase is wired up.
-export const dataSource: DataSource = demoSource;
+export const dataSource: DataSource = isSupabaseConfigured ? supabaseSource : demoSource;
 
 export type { DataSource } from "./types";

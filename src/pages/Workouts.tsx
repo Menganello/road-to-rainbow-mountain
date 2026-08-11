@@ -1,11 +1,16 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "../components/Header";
 import { WorkoutCard } from "../components/WorkoutCard";
 import { Button } from "../components/Button";
 import { dataSource } from "../lib/data";
 import { primeAudio } from "../lib/audio";
+import { isSupabaseConfigured } from "../lib/supabase";
 import type { Exercise, ScheduledWorkout, WorkoutWithExercises } from "../types";
+
+const ExcelImportPreview = lazy(() =>
+  import("../components/ExcelImportPreview").then((m) => ({ default: m.ExcelImportPreview }))
+);
 
 type ExerciseDraft = Omit<Exercise, "id" | "workoutId">;
 
@@ -26,6 +31,7 @@ export function Workouts() {
   const [workouts, setWorkouts] = useState<WorkoutWithExercises[]>([]);
   const [schedule, setSchedule] = useState<ScheduledWorkout[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
   const [loading, setLoading] = useState(true);
 
   async function reload() {
@@ -70,7 +76,28 @@ export function Workouts() {
     <div className="min-h-dvh bg-rainbow-beige pb-28">
       <Header />
       <main className="mx-auto max-w-md space-y-4 px-4">
-        <h1 className="font-display text-sm text-rainbow-blue">WORKOUTS</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="font-display text-sm text-rainbow-blue">WORKOUTS</h1>
+          {isSupabaseConfigured && !importing && (
+            <button onClick={() => setImporting(true)} className="text-xs font-bold text-rainbow-purple">
+              IMPORT EXCEL
+            </button>
+          )}
+        </div>
+
+        {importing && (
+          <Suspense fallback={<p className="text-xs text-rainbow-blue/50">Loading importer…</p>}>
+            <ExcelImportPreview
+              existingWorkouts={workouts}
+              onCancel={() => setImporting(false)}
+              onDone={async () => {
+                setImporting(false);
+                await reload();
+              }}
+            />
+          </Suspense>
+        )}
+
         {workouts.map((w) =>
           editingId === w.id ? (
             <WorkoutEditor

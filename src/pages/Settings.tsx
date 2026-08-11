@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Header } from "../components/Header";
 import { Button } from "../components/Button";
 import { dataSource } from "../lib/data";
-import { useAuth } from "../lib/auth/demoAuth";
+import { useAuth } from "../lib/auth";
 import { weekdayLabel } from "../lib/format";
 import type { ISOWeekday, Settings as SettingsType } from "../types";
 

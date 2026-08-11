@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { RainbowMountainMark } from "../components/icons/RainbowMountainMark";
 import { Button } from "../components/Button";
-import { useAuth } from "../lib/auth/demoAuth";
+import { useAuth } from "../lib/auth";
 
 export function Login() {
   const { signIn, resetPassword } = useAuth();
@@ -11,18 +11,30 @@ export function Login() {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    setError(null);
     setSubmitting(true);
-    await signIn(email, password);
-    navigate("/", { replace: true });
+    try {
+      await signIn(email, password);
+      navigate("/", { replace: true });
+    } catch {
+      setError("Couldn't sign in — check your email and password.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   async function handleReset() {
     if (!email) return;
-    await resetPassword(email);
-    setResetSent(true);
+    try {
+      await resetPassword(email);
+      setResetSent(true);
+    } catch {
+      setError("Couldn't send a reset email — check the address and try again.");
+    }
   }
 
   return (
@@ -67,6 +79,8 @@ export function Login() {
           />
         </div>
 
+        {error && <p className="text-center text-xs font-bold text-rainbow-pink">{error}</p>}
+
         <Button type="submit" tone="purple" disabled={submitting} className="mt-2">
           {submitting ? "…" : "LOGIN"}
         </Button>
@@ -76,7 +90,7 @@ export function Login() {
           onClick={handleReset}
           className="w-full text-center text-xs font-bold text-rainbow-blue/50 underline-offset-2 hover:underline"
         >
-          {resetSent ? "Reset link sent (demo)" : "Forgot password?"}
+          {resetSent ? "Reset link sent — check your inbox" : "Forgot password?"}
         </button>
       </form>
     </div>
