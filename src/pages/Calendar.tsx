@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Header } from "../components/Header";
 import { Calendar as CalendarGrid } from "../components/Calendar";
+import { Button } from "../components/Button";
 import { dataSource } from "../lib/data";
 import { weeklyCount } from "../lib/stats";
 import { todayISO } from "../lib/format";
@@ -18,20 +19,44 @@ export function CalendarPage() {
   const [monthOffset, setMonthOffset] = useState(0);
   const [selected, setSelected] = useState<{ date: string; entry: ScheduledWorkout | undefined } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    void (async () => {
+  async function load() {
+    try {
       const [sched, ws] = await Promise.all([dataSource.getSchedule(), dataSource.listWorkouts()]);
       setSchedule(sched);
       setWorkouts(ws);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong loading the calendar.");
+    } finally {
       setLoading(false);
-    })();
+    }
+  }
+
+  useEffect(() => {
+    void load();
   }, []);
 
   if (loading) {
     return (
       <div className="min-h-dvh bg-rainbow-beige pb-28">
         <Header />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-dvh bg-rainbow-beige pb-28">
+        <Header />
+        <main className="mx-auto max-w-md space-y-4 px-4 text-center">
+          <p className="font-display text-xs text-rainbow-pink">COULDN'T LOAD CALENDAR</p>
+          <p className="text-sm text-rainbow-blue/70">{error}</p>
+          <Button tone="purple" onClick={() => void load()}>
+            TRY AGAIN
+          </Button>
+        </main>
       </div>
     );
   }

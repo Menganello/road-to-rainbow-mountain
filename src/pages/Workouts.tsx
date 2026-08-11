@@ -33,12 +33,19 @@ export function Workouts() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   async function reload() {
-    const [ws, sched] = await Promise.all([dataSource.listWorkouts(), dataSource.getSchedule()]);
-    setWorkouts(ws);
-    setSchedule(sched);
-    setLoading(false);
+    try {
+      const [ws, sched] = await Promise.all([dataSource.listWorkouts(), dataSource.getSchedule()]);
+      setWorkouts(ws);
+      setSchedule(sched);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong loading your workouts.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -68,6 +75,21 @@ export function Workouts() {
     return (
       <div className="min-h-dvh bg-rainbow-beige pb-28">
         <Header />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-dvh bg-rainbow-beige pb-28">
+        <Header />
+        <main className="mx-auto max-w-md space-y-4 px-4 text-center">
+          <p className="font-display text-xs text-rainbow-pink">COULDN'T LOAD WORKOUTS</p>
+          <p className="text-sm text-rainbow-blue/70">{error}</p>
+          <Button tone="purple" onClick={() => void reload()}>
+            TRY AGAIN
+          </Button>
+        </main>
       </div>
     );
   }

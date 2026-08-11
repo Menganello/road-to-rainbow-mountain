@@ -88,4 +88,15 @@ describe("rescheduleWorkouts", () => {
     expect(result.find((r) => r.date === "2026-08-03")?.status).toBe("completed");
     expect(result.find((r) => r.date === "2026-08-10")?.status).toBe("completed");
   });
+
+  it("fills in the rest of this week for a brand new schedule instead of skipping to next week", () => {
+    // A fresh account: nothing scheduled yet. Today is Tuesday — Wednesday and Saturday
+    // this week should still get filled, not just next week onward.
+    const result = rescheduleWorkouts([], { today: "2026-08-11", preferredDays: MON_WED_SAT, cycle: CYCLE });
+    const thisWeekRows = result.filter((r) => r.date >= "2026-08-11" && r.date <= "2026-08-16");
+    expect(thisWeekRows.map((r) => [r.date, r.workoutId])).toEqual([
+      ["2026-08-12", "A"],
+      ["2026-08-15", "B"],
+    ]);
+  });
 });

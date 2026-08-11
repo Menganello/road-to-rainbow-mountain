@@ -10,6 +10,8 @@ function sb(): SupabaseClient {
   return supabase;
 }
 
+let refreshInFlight: Promise<ScheduledWorkout[]> | null = null;
+
 interface WorkoutRow {
   id: string;
   name: string;
@@ -161,21 +163,32 @@ export const supabaseSource: DataSource = {
   },
 
   async refreshSchedule() {
-    const client = sb();
-    const [before, { data: activeWorkouts, error }, settingsRow] = await Promise.all([
-      fetchSchedule(client),
-      client.from("workouts").select("*").eq("is_active", true).order("position"),
-      fetchOrCreateSettings(client),
-    ]);
-    if (error) throw error;
-    const cycle = ((activeWorkouts ?? []) as WorkoutRow[]).map((w) => w.id);
-    const after = rescheduleWorkouts(before, {
-      today: todayISO(),
-      preferredDays: toSettings(settingsRow).preferredDays,
-      cycle,
-    });
-    await persistScheduleDiff(client, before, after);
-    return after;
+    // Concurrent calls (e.g. React StrictMode's dev double-invoke, or two pages loading at
+    // once) must not race — two independent runs would each try to insert their own freshly
+    // generated ids for the same dates and collide on the (user_id, date) unique constraint.
+    if (refreshInFlight) return refreshInFlight;
+    refreshInFlight = (async () => {
+      const client = sb();
+      const [before, { data: activeWorkouts, error }, settingsRow] = await Promise.all([
+        fetchSchedule(client),
+        client.from("workouts").select("*").eq("is_active", true).order("position"),
+        fetchOrCreateSettings(client),
+      ]);
+      if (error) throw error;
+      const cycle = ((activeWorkouts ?? []) as WorkoutRow[]).map((w) => w.id);
+      const after = rescheduleWorkouts(before, {
+        today: todayISO(),
+        preferredDays: toSettings(settingsRow).preferredDays,
+        cycle,
+      });
+      await persistScheduleDiff(client, before, after);
+      return after;
+    })();
+    try {
+      return await refreshInFlight;
+    } finally {
+      refreshInFlight = null;
+    }
   },
 
   async moveScheduledWorkout(id, newDateISO) {

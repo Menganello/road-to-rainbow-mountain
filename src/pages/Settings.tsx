@@ -14,10 +14,32 @@ export function Settings() {
   const navigate = useNavigate();
   const [settings, setSettings] = useState<SettingsType | null>(null);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    void dataSource.getSettings().then(setSettings);
-  }, []);
+  function load() {
+    setError(null);
+    dataSource
+      .getSettings()
+      .then(setSettings)
+      .catch((err) => setError(err instanceof Error ? err.message : "Something went wrong loading settings."));
+  }
+
+  useEffect(load, []);
+
+  if (error) {
+    return (
+      <div className="min-h-dvh bg-rainbow-beige pb-28">
+        <Header />
+        <main className="mx-auto max-w-md space-y-4 px-4 text-center">
+          <p className="font-display text-xs text-rainbow-pink">COULDN'T LOAD SETTINGS</p>
+          <p className="text-sm text-rainbow-blue/70">{error}</p>
+          <Button tone="purple" onClick={load}>
+            TRY AGAIN
+          </Button>
+        </main>
+      </div>
+    );
+  }
 
   if (!settings) {
     return (

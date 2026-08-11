@@ -26,10 +26,20 @@ export function Home() {
   const [preferredCount, setPreferredCount] = useState(3);
   const [notice, setNotice] = useState<RepairNotice | null>(null);
   const [activeSessionWorkoutId, setActiveSessionWorkoutId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
+      try {
+        await loadInner();
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Something went wrong loading your data.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    async function loadInner() {
       const [before, ws, settings] = await Promise.all([
         dataSource.getSchedule(),
         dataSource.listWorkouts(),
@@ -63,7 +73,6 @@ export function Home() {
       setSchedule(after);
       setPreferredCount(settings.preferredDays.length);
       setActiveSessionWorkoutId(loadActiveSession()?.workoutId ?? null);
-      setLoading(false);
     }
     void load();
     return () => {
@@ -75,6 +84,18 @@ export function Home() {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-rainbow-beige">
         <RainbowLoading />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-rainbow-beige px-6 text-center">
+        <p className="font-display text-xs text-rainbow-pink">COULDN'T LOAD YOUR DATA</p>
+        <p className="text-sm text-rainbow-blue/70">{error}</p>
+        <Button tone="purple" onClick={() => window.location.reload()}>
+          TRY AGAIN
+        </Button>
       </div>
     );
   }
