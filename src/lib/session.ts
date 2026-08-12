@@ -1,4 +1,4 @@
-const STORAGE_KEY = "rrm.activeSession.v1";
+const STORAGE_KEY = "rrm.activeSession.v2";
 
 export interface LoggedSet {
   setNumber: number;
@@ -13,12 +13,13 @@ export interface RestTimerState {
 }
 
 export interface ActiveSessionState {
-  version: 1;
+  version: 2;
   workoutId: string;
   scheduledWorkoutId: string | null;
   startedAt: string;
-  currentExerciseIndex: number;
-  currentSetIndex: number;
+  /** Index into the workout's step sequence (see lib/workoutSteps.ts) — one step per set,
+   * or per circuit round-position for circuit workouts. */
+  stepIndex: number;
   setResults: Record<string, LoggedSet[]>;
   restTimer: RestTimerState | null;
   lastUpdatedAt: string;
@@ -33,7 +34,7 @@ export function loadActiveSession(): ActiveSessionState | null {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as ActiveSessionState;
-    return parsed.version === 1 ? parsed : null;
+    return parsed.version === 2 ? parsed : null;
   } catch {
     return null;
   }
@@ -45,12 +46,11 @@ export function clearActiveSession(): void {
 
 export function newActiveSession(workoutId: string, scheduledWorkoutId: string | null): ActiveSessionState {
   return {
-    version: 1,
+    version: 2,
     workoutId,
     scheduledWorkoutId,
     startedAt: new Date().toISOString(),
-    currentExerciseIndex: 0,
-    currentSetIndex: 0,
+    stepIndex: 0,
     setResults: {},
     restTimer: null,
     lastUpdatedAt: new Date().toISOString(),

@@ -65,6 +65,7 @@ export function Workouts() {
       name: workout.name,
       position: workout.position,
       isActive: workout.isActive,
+      isCircuit: workout.isCircuit,
       exercises,
     });
     setEditingId(null);

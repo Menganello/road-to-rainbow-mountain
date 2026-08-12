@@ -11,6 +11,7 @@ export interface WorkoutDraft {
   name: string;
   position: number;
   isActive: boolean;
+  isCircuit: boolean;
   exercises: Omit<Exercise, "id" | "workoutId">[];
 }
 

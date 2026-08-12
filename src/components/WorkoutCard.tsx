@@ -23,6 +23,11 @@ export function WorkoutCard({ workout, lastCompletedISO, onStart, onEdit }: Work
       </div>
       <p className="text-sm text-rainbow-blue/70">
         {workout.exercises.length} exercises · ~{minutes} min
+        {workout.isCircuit && (
+          <span className="ml-2 rounded-full bg-rainbow-turquoise/15 px-2 py-0.5 text-[10px] font-bold text-rainbow-turquoise">
+            CIRCUIT
+          </span>
+        )}
       </p>
       <p className="text-xs text-rainbow-blue/50">
         {lastCompletedISO ? `Last done ${formatDayMonth(lastCompletedISO)}` : "Not done yet"}

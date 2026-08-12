@@ -3,9 +3,9 @@ import { addDays, todayISO } from "./format";
 import { generateSchedule } from "./scheduler";
 
 export const DEMO_WORKOUTS: Workout[] = [
-  { id: "w-a", name: "Workout A", position: 0, isActive: true },
-  { id: "w-b", name: "Workout B", position: 1, isActive: true },
-  { id: "w-c", name: "Workout C", position: 2, isActive: true },
+  { id: "w-a", name: "Workout A", position: 0, isActive: true, isCircuit: false },
+  { id: "w-b", name: "Workout B", position: 1, isActive: true, isCircuit: false },
+  { id: "w-c", name: "Workout C", position: 2, isActive: true, isCircuit: false },
 ];
 
 export const DEMO_EXERCISES: Exercise[] = [

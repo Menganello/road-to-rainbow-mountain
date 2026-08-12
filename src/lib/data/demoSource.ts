@@ -68,10 +68,10 @@ export const demoSource: DataSource = {
     if (draft.id) {
       const existing = store.workouts.find((w) => w.id === draft.id);
       if (!existing) throw new Error("Workout not found");
-      workout = { ...existing, name: draft.name, position: draft.position, isActive: draft.isActive };
+      workout = { ...existing, name: draft.name, position: draft.position, isActive: draft.isActive, isCircuit: draft.isCircuit };
       store.workouts = store.workouts.map((w) => (w.id === workout.id ? workout : w));
     } else {
-      workout = { id: newId(), name: draft.name, position: draft.position, isActive: draft.isActive };
+      workout = { id: newId(), name: draft.name, position: draft.position, isActive: draft.isActive, isCircuit: draft.isCircuit };
       store.workouts = [...store.workouts, workout];
     }
     store.exercises = store.exercises.filter((e) => e.workoutId !== workout.id);

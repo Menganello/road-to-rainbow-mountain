@@ -5,6 +5,8 @@ export interface Workout {
   name: string;
   position: number; // 0,1,2 => A,B,C cycle order
   isActive: boolean;
+  /** Circuit: one round = one "set" of every exercise, back to back; rest happens between rounds. */
+  isCircuit: boolean;
 }
 
 export interface Exercise {

@@ -45,6 +45,7 @@ export function ExcelImportPreview({ existingWorkouts, onDone, onCancel }: Excel
           name: imported.name,
           position: existing?.position ?? nextPosition++,
           isActive: existing?.isActive ?? true,
+          isCircuit: imported.isCircuit,
           exercises: imported.exercises,
         });
       }
@@ -82,15 +83,23 @@ export function ExcelImportPreview({ existingWorkouts, onDone, onCancel }: Excel
             <div key={w.name} className="rounded-2xl bg-rainbow-beige/60 p-3">
               <p className="font-display text-xs text-rainbow-blue">
                 {w.name}
+                {w.isCircuit && <span className="ml-2 text-[9px] font-bold text-rainbow-turquoise">CIRCUIT</span>}
                 {existingWorkouts.some((ew) => ew.name.toLowerCase() === w.name.toLowerCase()) && (
                   <span className="ml-2 text-[9px] font-bold text-rainbow-orange">REPLACES EXISTING</span>
                 )}
               </p>
+              {w.isCircuit && (
+                <p className="mt-1 text-[10px] text-rainbow-blue/50">
+                  {w.exercises.length} exercises × {w.exercises[0]?.sets ?? 0} rounds, rest{" "}
+                  {w.exercises.find((e) => e.restSeconds > 0)?.restSeconds ?? 0}s between rounds
+                </p>
+              )}
               <ul className="mt-2 space-y-1 text-xs text-rainbow-blue/70">
                 {w.exercises.map((e, i) => (
                   <li key={i}>
-                    {e.name} — {e.sets}×{e.reps}
-                    {e.weight ? ` @ ${e.weight}kg` : ""} · rest {e.restSeconds}s
+                    {e.name} — {w.isCircuit ? `${e.reps} reps` : `${e.sets}×${e.reps}`}
+                    {e.weight ? ` @ ${e.weight}kg` : ""}
+                    {!w.isCircuit && ` · rest ${e.restSeconds}s`}
                   </li>
                 ))}
               </ul>

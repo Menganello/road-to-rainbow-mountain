@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { X } from "lucide-react";
 import { Button } from "../components/Button";
@@ -6,6 +6,7 @@ import { Timer } from "../components/Timer";
 import { dataSource } from "../lib/data";
 import { primeAudio } from "../lib/audio";
 import { useRestTimer } from "../lib/timer";
+import { buildWorkoutSteps, type WorkoutStep } from "../lib/workoutSteps";
 import {
   clearActiveSession,
   loadActiveSession,
@@ -30,19 +31,29 @@ export function WorkoutSession() {
 
   const [workout, setWorkout] = useState<WorkoutWithExercises | null>(null);
   const [phase, setPhase] = useState<Phase>("exercise");
-  const [exerciseIndex, setExerciseIndex] = useState(0);
-  const [setIndex, setSetIndex] = useState(0);
+  const [stepIndex, setStepIndex] = useState(0);
   const [setResults, setSetResults] = useState<Record<string, LoggedSet[]>>({});
   const [actualWeight, setActualWeight] = useState(0);
   const [actualReps, setActualReps] = useState(0);
   const scheduledWorkoutIdRef = useRef<string | null>(null);
   const startedAtRef = useRef<string>(new Date().toISOString());
-  const nextSetIndexRef = useRef(0);
+
+  const steps = useMemo(
+    () => buildWorkoutSteps(workout?.exercises ?? [], workout?.isCircuit ?? false),
+    [workout]
+  );
+  const currentStep: WorkoutStep | undefined = steps[stepIndex];
+  const currentExercise = workout && currentStep ? workout.exercises[currentStep.exerciseIndex] : undefined;
 
   const restTimer = useRestTimer({
     onComplete: () => advanceAfterRest(),
     onEndTimestampChange: (endTimestamp) => {
-      persist({ restTimer: endTimestamp && workout ? { endTimestamp, exerciseId: workout.exercises[exerciseIndex].id, setNumber: setIndex + 1 } : null });
+      persist({
+        restTimer:
+          endTimestamp && currentExercise && currentStep
+            ? { endTimestamp, exerciseId: currentExercise.id, setNumber: currentStep.setNumber }
+            : null,
+      });
     },
   });
 
@@ -56,21 +67,22 @@ export function WorkoutSession() {
       const w = workouts.find((x) => x.id === id);
       if (!w || cancelled) return;
       setWorkout(w);
+      const builtSteps = buildWorkoutSteps(w.exercises, w.isCircuit);
 
       const saved = loadActiveSession();
       if (saved && saved.workoutId === id) {
         scheduledWorkoutIdRef.current = saved.scheduledWorkoutId;
         startedAtRef.current = saved.startedAt;
-        setExerciseIndex(saved.currentExerciseIndex);
-        setSetIndex(saved.currentSetIndex);
         setSetResults(saved.setResults);
-        const exercise = w.exercises[saved.currentExerciseIndex];
-        if (saved.restTimer && exercise) {
-          nextSetIndexRef.current = saved.currentSetIndex + 1;
+        const idx = Math.min(saved.stepIndex, Math.max(0, builtSteps.length - 1));
+        setStepIndex(idx);
+        const step = builtSteps[idx];
+        const ex = step ? w.exercises[step.exerciseIndex] : undefined;
+        if (saved.restTimer && ex) {
           setPhase("resting");
           restTimer.resume(saved.restTimer.endTimestamp);
         }
-        primeActualInputs(exercise, saved.currentSetIndex, saved.setResults);
+        primeActualInputs(ex, step ? step.setNumber - 1 : 0, saved.setResults);
       } else {
         scheduledWorkoutIdRef.current = location.state?.scheduledWorkoutId ?? null;
         const fresh = newActiveSession(id, scheduledWorkoutIdRef.current);
@@ -114,58 +126,56 @@ export function WorkoutSession() {
   // A stable non-null binding: TypeScript can't carry the `!workout` narrowing above into the
   // sibling function declarations below (advanceAfterRest, handleNextExercise, finishWorkout).
   const w = workout;
-  const exercise = w.exercises[exerciseIndex];
+
+  function goToStep(index: number) {
+    const step = steps[index];
+    setStepIndex(index);
+    primeActualInputs(step ? w.exercises[step.exerciseIndex] : undefined, step ? step.setNumber - 1 : 0, setResults);
+    persist({ stepIndex: index, restTimer: null });
+    setPhase("exercise");
+  }
 
   function handleCompleteSet() {
-    if (!exercise) return;
-    const logged: LoggedSet = { setNumber: setIndex + 1, weight: actualWeight || null, reps: actualReps || null };
+    if (!currentStep || !currentExercise) return;
+    const logged: LoggedSet = { setNumber: currentStep.setNumber, weight: actualWeight || null, reps: actualReps || null };
     const updatedResults = {
       ...setResults,
-      [exercise.id]: [...(setResults[exercise.id] ?? []).filter((s) => s.setNumber !== logged.setNumber), logged],
+      [currentExercise.id]: [
+        ...(setResults[currentExercise.id] ?? []).filter((s) => s.setNumber !== logged.setNumber),
+        logged,
+      ],
     };
     setSetResults(updatedResults);
-    persist({
-      setResults: updatedResults,
-      currentExerciseIndex: exerciseIndex,
-      currentSetIndex: setIndex,
-    });
+    persist({ setResults: updatedResults, stepIndex });
 
-    nextSetIndexRef.current = setIndex + 1;
-    if (exercise.restSeconds > 0) {
+    if (currentStep.restSecondsAfter > 0) {
       setPhase("resting");
-      restTimer.start(exercise.restSeconds);
+      restTimer.start(currentStep.restSecondsAfter);
     } else {
-      advanceAfterRest(); // no rest configured for this exercise — go straight to the next step
+      advanceAfterRest(); // no rest configured here — go straight to the next step
     }
   }
 
   function advanceAfterRest() {
-    if (!exercise) return;
-    const hasMoreSets = nextSetIndexRef.current < exercise.sets;
-    if (hasMoreSets) {
-      setSetIndex(nextSetIndexRef.current);
-      primeActualInputs(exercise, nextSetIndexRef.current, setResults);
-      persist({ currentSetIndex: nextSetIndexRef.current, restTimer: null });
-      setPhase("exercise");
+    const nextIndex = stepIndex + 1;
+    if (nextIndex >= steps.length) {
+      void finishWorkout();
       return;
     }
-
-    const hasMoreExercises = exerciseIndex + 1 < w.exercises.length;
-    if (hasMoreExercises) {
+    const nextStep = steps[nextIndex];
+    const movingToNewExercise = !currentStep || nextStep.exerciseIndex !== currentStep.exerciseIndex;
+    if (!w.isCircuit && movingToNewExercise) {
+      // Circuits flow straight from one exercise to the next within a round; only a normal
+      // workout pauses on a "exercise done, tap to continue" screen between exercises.
       persist({ restTimer: null });
       setPhase("exercise-done");
-    } else {
-      void finishWorkout();
+      return;
     }
+    goToStep(nextIndex);
   }
 
   function handleNextExercise() {
-    const nextIndex = exerciseIndex + 1;
-    setExerciseIndex(nextIndex);
-    setSetIndex(0);
-    primeActualInputs(w.exercises[nextIndex], 0, setResults);
-    persist({ currentExerciseIndex: nextIndex, currentSetIndex: 0 });
-    setPhase("exercise");
+    goToStep(stepIndex + 1);
   }
 
   async function finishWorkout() {
@@ -187,12 +197,24 @@ export function WorkoutSession() {
     navigate("/");
   }
 
+  const progressLabel =
+    currentStep && currentExercise
+      ? w.isCircuit
+        ? `${currentStep.exerciseIndex + 1} / ${w.exercises.length}`
+        : `SET ${currentStep.setNumber} / ${currentExercise.sets}`
+      : "";
+
   return (
     <div className="flex min-h-dvh flex-col bg-rainbow-blue text-white">
       <div className="flex items-center justify-between px-4 pt-4">
         <div>
           <p className="font-display text-[9px] text-white/60">ROAD TO RAINBOW MOUNTAIN</p>
           <p className="font-display text-xs text-rainbow-yellow">{workout.name.toUpperCase()}</p>
+          {w.isCircuit && currentStep && (
+            <p className="mt-1 font-display text-[10px] text-rainbow-turquoise">
+              GIRO {currentStep.setNumber} / {w.exercises[0]?.sets ?? 0}
+            </p>
+          )}
         </div>
         <button onClick={handleClose} aria-label="Close" className="p-2 text-white/70">
           <X size={22} />
@@ -200,10 +222,10 @@ export function WorkoutSession() {
       </div>
 
       <div className="flex flex-1 flex-col items-center justify-center px-6">
-        {phase === "exercise" && exercise && (
+        {phase === "exercise" && currentExercise && (
           <ExercisePhase
-            exercise={exercise}
-            setNumber={setIndex + 1}
+            exercise={currentExercise}
+            progressLabel={progressLabel}
             weight={actualWeight}
             reps={actualReps}
             onWeightChange={setActualWeight}
@@ -215,7 +237,7 @@ export function WorkoutSession() {
         {phase === "resting" && (
           <Timer
             remainingMs={restTimer.remainingMs}
-            totalMs={exercise ? exercise.restSeconds * 1000 : 0}
+            totalMs={currentStep ? currentStep.restSecondsAfter * 1000 : 0}
             onAdd15={() => restTimer.addSeconds(15)}
             onAdd30={() => restTimer.addSeconds(30)}
             onSkip={restTimer.skip}
@@ -225,7 +247,7 @@ export function WorkoutSession() {
         {phase === "exercise-done" && (
           <div className="flex flex-col items-center gap-6 text-center">
             <p className="text-5xl">🎉</p>
-            <p className="font-display text-sm text-rainbow-yellow">{exercise?.name.toUpperCase()} DONE</p>
+            <p className="font-display text-sm text-rainbow-yellow">{currentExercise?.name.toUpperCase()} DONE</p>
             <Button tone="turquoise" onClick={handleNextExercise}>
               NEXT EXERCISE
             </Button>
@@ -249,7 +271,7 @@ export function WorkoutSession() {
 
 interface ExercisePhaseProps {
   exercise: Exercise;
-  setNumber: number;
+  progressLabel: string;
   weight: number;
   reps: number;
   onWeightChange: (v: number) => void;
@@ -257,7 +279,7 @@ interface ExercisePhaseProps {
   onComplete: () => void;
 }
 
-function ExercisePhase({ exercise, setNumber, weight, reps, onWeightChange, onRepsChange, onComplete }: ExercisePhaseProps) {
+function ExercisePhase({ exercise, progressLabel, weight, reps, onWeightChange, onRepsChange, onComplete }: ExercisePhaseProps) {
   return (
     <div className="flex w-full max-w-xs flex-col items-center gap-8 text-center">
       <h1 className="font-display text-2xl leading-snug text-white">{exercise.name.toUpperCase()}</h1>
@@ -267,9 +289,7 @@ function ExercisePhase({ exercise, setNumber, weight, reps, onWeightChange, onRe
         <Stepper label="REPS" value={reps} step={1} onChange={onRepsChange} />
       </div>
 
-      <p className="font-display text-sm text-rainbow-turquoise">
-        SET {setNumber} / {exercise.sets}
-      </p>
+      <p className="font-display text-sm text-rainbow-turquoise">{progressLabel}</p>
 
       <Button tone="yellow" onClick={onComplete}>
         COMPLETE SET

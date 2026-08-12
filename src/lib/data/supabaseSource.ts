@@ -17,6 +17,7 @@ interface WorkoutRow {
   name: string;
   position: number;
   is_active: boolean;
+  is_circuit: boolean;
 }
 interface ExerciseRow {
   id: string;
@@ -43,7 +44,13 @@ interface SettingsRow {
   timezone: string;
 }
 
-const toWorkout = (r: WorkoutRow): Workout => ({ id: r.id, name: r.name, position: r.position, isActive: r.is_active });
+const toWorkout = (r: WorkoutRow): Workout => ({
+  id: r.id,
+  name: r.name,
+  position: r.position,
+  isActive: r.is_active,
+  isCircuit: r.is_circuit,
+});
 const toExercise = (r: ExerciseRow): Exercise => ({
   id: r.id,
   workoutId: r.workout_id,
@@ -118,7 +125,13 @@ export const supabaseSource: DataSource = {
     if (workoutId) {
       const { error } = await client
         .from("workouts")
-        .update({ name: draft.name, position: draft.position, is_active: draft.isActive, updated_at: new Date().toISOString() })
+        .update({
+          name: draft.name,
+          position: draft.position,
+          is_active: draft.isActive,
+          is_circuit: draft.isCircuit,
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", workoutId);
       if (error) throw error;
       const { error: deleteError } = await client.from("exercises").delete().eq("workout_id", workoutId);
@@ -126,7 +139,7 @@ export const supabaseSource: DataSource = {
     } else {
       const { data, error } = await client
         .from("workouts")
-        .insert({ name: draft.name, position: draft.position, is_active: draft.isActive })
+        .insert({ name: draft.name, position: draft.position, is_active: draft.isActive, is_circuit: draft.isCircuit })
         .select()
         .single();
       if (error) throw error;
