@@ -18,7 +18,7 @@ export function CalendarPage() {
   const [workouts, setWorkouts] = useState<WorkoutWithExercises[]>([]);
   const [preferredCount, setPreferredCount] = useState(3);
   const [monthOffset, setMonthOffset] = useState(0);
-  const [selected, setSelected] = useState<{ date: string; entry: ScheduledWorkout | undefined } | null>(null);
+  const [selected, setSelected] = useState<{ date: string; entries: ScheduledWorkout[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -109,7 +109,7 @@ export function CalendarPage() {
             scheduled={schedule}
             workoutLetter={letterFor}
             todayISO={today}
-            onSelectDay={(date, entry) => setSelected({ date, entry })}
+            onSelectDay={(date, entries) => setSelected({ date, entries })}
           />
         </div>
 
@@ -120,13 +120,17 @@ export function CalendarPage() {
         </div>
 
         {selected && (
-          <div className="rounded-2xl bg-white p-4 shadow-chunky">
+          <div className="space-y-1 rounded-2xl bg-white p-4 shadow-chunky">
             <p className="font-display text-xs text-rainbow-blue">{selected.date}</p>
-            <p className="mt-1 text-sm text-rainbow-blue/70">
-              {selected.entry
-                ? `${workouts.find((w) => w.id === selected.entry!.workoutId)?.name ?? "Workout"} — ${selected.entry.status}`
-                : "Nothing scheduled"}
-            </p>
+            {selected.entries.length === 0 ? (
+              <p className="text-sm text-rainbow-blue/70">Nothing scheduled</p>
+            ) : (
+              selected.entries.map((e) => (
+                <p key={e.id} className="text-sm text-rainbow-blue/70">
+                  {workouts.find((w) => w.id === e.workoutId)?.name ?? "Workout"} — {e.status}
+                </p>
+              ))
+            )}
           </div>
         )}
       </main>

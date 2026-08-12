@@ -273,15 +273,14 @@ export const supabaseSource: DataSource = {
       if (updateError) throw updateError;
     } else {
       // Ad-hoc start (e.g. tapped START on the Workouts list rather than today's scheduled
-      // card): today very likely already has a row from the auto-generated schedule, so a
-      // plain insert would 409 on the (user_id, date) unique constraint. Upsert instead —
-      // whatever was actually done today should replace whatever was merely planned.
-      const { error: adHocError } = await client
-        .from("scheduled_workouts")
-        .upsert(
-          { workout_id: input.workoutId, date: input.completedAt.slice(0, 10), status: "completed" },
-          { onConflict: "user_id,date" }
-        );
+      // card) — insert a new same-day row. Any number of these can coexist with each other
+      // and with today's regular scheduled slot: extra workouts in a day are additive, all
+      // counted toward the weekly/lifetime totals.
+      const { error: adHocError } = await client.from("scheduled_workouts").insert({
+        workout_id: input.workoutId,
+        date: input.completedAt.slice(0, 10),
+        status: "completed",
+      });
       if (adHocError) throw adHocError;
     }
   },

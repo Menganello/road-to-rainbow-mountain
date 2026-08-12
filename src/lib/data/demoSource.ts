@@ -130,23 +130,15 @@ export const demoSource: DataSource = {
       const scheduledId = input.scheduledWorkoutId;
       store.scheduled = store.scheduled.map((r) => (r.id === scheduledId ? { ...r, status: "completed" as const } : r));
     } else {
-      // Ad-hoc start: today very likely already has a row from the auto-generated schedule —
-      // replace it with what was actually done rather than adding a conflicting second entry.
-      const dateStr = input.completedAt.slice(0, 10);
-      const existingForDate = store.scheduled.find((r) => r.date === dateStr);
-      if (existingForDate) {
-        store.scheduled = store.scheduled.map((r) =>
-          r.date === dateStr ? { ...r, workoutId: input.workoutId, status: "completed" as const } : r
-        );
-      } else {
-        const adHoc: ScheduledWorkout = {
-          id: newId(),
-          workoutId: input.workoutId,
-          date: dateStr,
-          status: "completed",
-        };
-        store.scheduled = [...store.scheduled, adHoc];
-      }
+      // Ad-hoc start: a new same-day row, additive — any number of these can coexist with
+      // each other and with the day's regular scheduled slot.
+      const adHoc: ScheduledWorkout = {
+        id: newId(),
+        workoutId: input.workoutId,
+        date: input.completedAt.slice(0, 10),
+        status: "completed",
+      };
+      store.scheduled = [...store.scheduled, adHoc];
     }
     saveStore(store);
   },
