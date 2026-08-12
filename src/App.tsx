@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { HashRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./lib/auth";
 import { BottomNav } from "./components/BottomNav";
 import { Login } from "./pages/Login";
@@ -78,10 +78,10 @@ function Shell() {
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <AuthProvider>
         <Shell />
       </AuthProvider>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
