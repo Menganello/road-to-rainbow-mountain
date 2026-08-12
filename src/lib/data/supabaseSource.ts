@@ -10,6 +10,24 @@ function sb(): SupabaseClient {
   return supabase;
 }
 
+/**
+ * There's a brief window right after signing in (and potentially after a background-tab
+ * token refresh) where the very next request can 401 even though the session is genuinely
+ * valid — a one-time retry after a short pause clears it up rather than surfacing a scary
+ * error for what's really just a timing hiccup.
+ */
+async function withAuthRetry<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const looksLikeAuthHiccup = message.includes("401") || /jwt|token|auth/i.test(message);
+    if (!looksLikeAuthHiccup) throw err;
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    return fn();
+  }
+}
+
 let refreshInFlight: Promise<ScheduledWorkout[]> | null = null;
 
 interface WorkoutRow {
@@ -103,20 +121,22 @@ async function persistScheduleDiff(client: SupabaseClient, before: ScheduledWork
 
 export const supabaseSource: DataSource = {
   async listWorkouts() {
-    const client = sb();
-    const [{ data: workouts, error }, { data: exercises, error: exError }] = await Promise.all([
-      client.from("workouts").select("*").order("position"),
-      client.from("exercises").select("*").order("position"),
-    ]);
-    if (error) throw error;
-    if (exError) throw exError;
-    const exRows = (exercises ?? []) as ExerciseRow[];
-    return ((workouts ?? []) as WorkoutRow[]).map(
-      (w): WorkoutWithExercises => ({
-        ...toWorkout(w),
-        exercises: exRows.filter((e) => e.workout_id === w.id).map(toExercise),
-      })
-    );
+    return withAuthRetry(async () => {
+      const client = sb();
+      const [{ data: workouts, error }, { data: exercises, error: exError }] = await Promise.all([
+        client.from("workouts").select("*").order("position"),
+        client.from("exercises").select("*").order("position"),
+      ]);
+      if (error) throw error;
+      if (exError) throw exError;
+      const exRows = (exercises ?? []) as ExerciseRow[];
+      return ((workouts ?? []) as WorkoutRow[]).map(
+        (w): WorkoutWithExercises => ({
+          ...toWorkout(w),
+          exercises: exRows.filter((e) => e.workout_id === w.id).map(toExercise),
+        })
+      );
+    });
   },
 
   async saveWorkout(draft) {
@@ -172,7 +192,7 @@ export const supabaseSource: DataSource = {
   },
 
   async getSchedule() {
-    return fetchSchedule(sb());
+    return withAuthRetry(() => fetchSchedule(sb()));
   },
 
   async refreshSchedule() {
@@ -180,7 +200,7 @@ export const supabaseSource: DataSource = {
     // once) must not race — two independent runs would each try to insert their own freshly
     // generated ids for the same dates and collide on the (user_id, date) unique constraint.
     if (refreshInFlight) return refreshInFlight;
-    refreshInFlight = (async () => {
+    refreshInFlight = withAuthRetry(async () => {
       const client = sb();
       const [before, { data: activeWorkouts, error }, settingsRow] = await Promise.all([
         fetchSchedule(client),
@@ -196,7 +216,7 @@ export const supabaseSource: DataSource = {
       });
       await persistScheduleDiff(client, before, after);
       return after;
-    })();
+    });
     try {
       return await refreshInFlight;
     } finally {
@@ -252,17 +272,22 @@ export const supabaseSource: DataSource = {
         .eq("id", input.scheduledWorkoutId);
       if (updateError) throw updateError;
     } else {
-      const { error: adHocError } = await client.from("scheduled_workouts").insert({
-        workout_id: input.workoutId,
-        date: input.completedAt.slice(0, 10),
-        status: "completed",
-      });
+      // Ad-hoc start (e.g. tapped START on the Workouts list rather than today's scheduled
+      // card): today very likely already has a row from the auto-generated schedule, so a
+      // plain insert would 409 on the (user_id, date) unique constraint. Upsert instead —
+      // whatever was actually done today should replace whatever was merely planned.
+      const { error: adHocError } = await client
+        .from("scheduled_workouts")
+        .upsert(
+          { workout_id: input.workoutId, date: input.completedAt.slice(0, 10), status: "completed" },
+          { onConflict: "user_id,date" }
+        );
       if (adHocError) throw adHocError;
     }
   },
 
   async getSettings() {
-    return toSettings(await fetchOrCreateSettings(sb()));
+    return withAuthRetry(async () => toSettings(await fetchOrCreateSettings(sb())));
   },
 
   async saveSettings(patch) {

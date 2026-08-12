@@ -17,7 +17,7 @@ import {
 } from "../lib/session";
 import type { Exercise, SetResult, WorkoutWithExercises } from "../types";
 
-type Phase = "exercise" | "resting" | "exercise-done" | "workout-done";
+type Phase = "exercise" | "resting" | "exercise-done" | "finishing" | "workout-done";
 
 function parseTargetReps(reps: string): number {
   const match = reps.match(/\d+/);
@@ -35,6 +35,9 @@ export function WorkoutSession() {
   const [setResults, setSetResults] = useState<Record<string, LoggedSet[]>>({});
   const [actualWeight, setActualWeight] = useState(0);
   const [actualReps, setActualReps] = useState(0);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [finishError, setFinishError] = useState<string | null>(null);
+  const [reloadTick, setReloadTick] = useState(0);
   const scheduledWorkoutIdRef = useRef<string | null>(null);
   const startedAtRef = useRef<string>(new Date().toISOString());
 
@@ -62,6 +65,7 @@ export function WorkoutSession() {
     const id = workoutId;
     primeAudio();
     let cancelled = false;
+    setLoadError(null);
     async function load() {
       const workouts = await dataSource.listWorkouts();
       const w = workouts.find((x) => x.id === id);
@@ -91,12 +95,14 @@ export function WorkoutSession() {
         primeActualInputs(w.exercises[0], 0, {});
       }
     }
-    void load();
+    load().catch((err) => {
+      if (!cancelled) setLoadError(err instanceof Error ? err.message : "Couldn't load this workout.");
+    });
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workoutId]);
+  }, [workoutId, reloadTick]);
 
   function primeActualInputs(exercise: Exercise | undefined, setIdx: number, results: Record<string, LoggedSet[]>) {
     if (!exercise) return;
@@ -113,6 +119,21 @@ export function WorkoutSession() {
         ? current
         : newActiveSession(workoutId, scheduledWorkoutIdRef.current);
     saveActiveSession({ ...base, ...patch });
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-rainbow-blue px-6 text-center">
+        <p className="font-display text-xs text-rainbow-pink">COULDN'T LOAD THIS WORKOUT</p>
+        <p className="text-sm text-white/70">{loadError}</p>
+        <Button tone="turquoise" onClick={() => setReloadTick((t) => t + 1)}>
+          TRY AGAIN
+        </Button>
+        <button onClick={() => navigate("/")} className="text-xs font-bold text-white/50 underline-offset-2">
+          Back home
+        </button>
+      </div>
+    );
   }
 
   if (!workout) {
@@ -179,16 +200,23 @@ export function WorkoutSession() {
   }
 
   async function finishWorkout() {
+    setPhase("finishing");
+    setFinishError(null);
     const flatResults: SetResult[] = Object.entries(setResults).flatMap(([exerciseId, sets]) =>
       sets.map((s) => ({ exerciseId, setNumber: s.setNumber, weight: s.weight, reps: s.reps }))
     );
-    await dataSource.completeWorkout({
-      workoutId: w.id,
-      scheduledWorkoutId: scheduledWorkoutIdRef.current,
-      startedAt: startedAtRef.current,
-      completedAt: new Date().toISOString(),
-      setResults: flatResults,
-    });
+    try {
+      await dataSource.completeWorkout({
+        workoutId: w.id,
+        scheduledWorkoutId: scheduledWorkoutIdRef.current,
+        startedAt: startedAtRef.current,
+        completedAt: new Date().toISOString(),
+        setResults: flatResults,
+      });
+    } catch (err) {
+      setFinishError(err instanceof Error ? err.message : "Couldn't save your workout — check your connection and try again.");
+      return;
+    }
     clearActiveSession();
     setPhase("workout-done");
   }
@@ -251,6 +279,22 @@ export function WorkoutSession() {
             <Button tone="turquoise" onClick={handleNextExercise}>
               NEXT EXERCISE
             </Button>
+          </div>
+        )}
+
+        {phase === "finishing" && (
+          <div className="flex flex-col items-center gap-4 text-center">
+            {finishError ? (
+              <>
+                <p className="font-display text-xs text-rainbow-pink">COULDN'T SAVE</p>
+                <p className="text-sm text-white/70">{finishError}</p>
+                <Button tone="turquoise" onClick={() => void finishWorkout()}>
+                  TRY AGAIN
+                </Button>
+              </>
+            ) : (
+              <p className="font-display text-xs text-white/60 animate-pulse">SAVING…</p>
+            )}
           </div>
         )}
 
