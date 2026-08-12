@@ -131,8 +131,12 @@ export function WorkoutSession() {
     });
 
     nextSetIndexRef.current = setIndex + 1;
-    setPhase("resting");
-    restTimer.start(exercise.restSeconds);
+    if (exercise.restSeconds > 0) {
+      setPhase("resting");
+      restTimer.start(exercise.restSeconds);
+    } else {
+      advanceAfterRest(); // no rest configured for this exercise — go straight to the next step
+    }
   }
 
   function advanceAfterRest() {

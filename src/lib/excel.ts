@@ -74,7 +74,7 @@ export async function parseExcelFile(file: File): Promise<ImportedWorkout[]> {
       sets: toNumber(record.sets) ?? 3,
       reps: String(record.reps ?? "").trim() || "10",
       weight: toNumber(record.weight),
-      restSeconds: toNumber(record.rest) ?? 60,
+      restSeconds: toNumber(record.rest) ?? 0, // empty cell = no rest, not a guessed default
       notes: String(record.notes ?? "").trim(),
       position: workout.exercises.length,
     });
