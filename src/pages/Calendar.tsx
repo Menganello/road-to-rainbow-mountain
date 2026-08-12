@@ -16,6 +16,7 @@ const MONTH_NAMES = [
 export function CalendarPage() {
   const [schedule, setSchedule] = useState<ScheduledWorkout[]>([]);
   const [workouts, setWorkouts] = useState<WorkoutWithExercises[]>([]);
+  const [preferredCount, setPreferredCount] = useState(3);
   const [monthOffset, setMonthOffset] = useState(0);
   const [selected, setSelected] = useState<{ date: string; entry: ScheduledWorkout | undefined } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -23,9 +24,14 @@ export function CalendarPage() {
 
   async function load() {
     try {
-      const [sched, ws] = await Promise.all([dataSource.getSchedule(), dataSource.listWorkouts()]);
+      const [sched, ws, settings] = await Promise.all([
+        dataSource.refreshSchedule(), // marks overdue days as missed, not just a raw read
+        dataSource.listWorkouts(),
+        dataSource.getSettings(),
+      ]);
       setSchedule(sched);
       setWorkouts(ws);
+      setPreferredCount(settings.preferredDays.length);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong loading the calendar.");
@@ -81,7 +87,7 @@ export function CalendarPage() {
         <div className="flex items-center justify-between">
           <p className="font-display text-xs text-rainbow-blue/50">THIS WEEK</p>
           <p className="font-display text-sm text-rainbow-purple">
-            {week.completed} / {week.total || 3} WORKOUTS
+            {week.completed} / {preferredCount} WORKOUTS
           </p>
         </div>
 

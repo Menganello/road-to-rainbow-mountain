@@ -29,6 +29,12 @@ export interface DataSource {
   getSchedule(): Promise<ScheduledWorkout[]>;
   /** Marks misses, repairs the current week, and regenerates the future window; persists and returns the result. */
   refreshSchedule(): Promise<ScheduledWorkout[]>;
+  /**
+   * Discards every not-yet-happened ('planned') scheduled workout — keeping completed/missed
+   * history intact — then rebuilds the schedule from scratch against the current settings.
+   * Used after a preferred-days change so the new days take effect this week, not next.
+   */
+  regenerateSchedule(): Promise<ScheduledWorkout[]>;
   /** Explicit user override (e.g. Home's "MOVE TO TODAY" / "CHOOSE DATE"). */
   moveScheduledWorkout(id: string, newDateISO: string): Promise<ScheduledWorkout[]>;
 

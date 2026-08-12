@@ -100,6 +100,13 @@ export const demoSource: DataSource = {
     return updated;
   },
 
+  async regenerateSchedule() {
+    const store = loadStore();
+    store.scheduled = store.scheduled.filter((r) => r.status !== "planned");
+    saveStore(store);
+    return demoSource.refreshSchedule();
+  },
+
   async moveScheduledWorkout(id, newDateISO) {
     const store = loadStore();
     store.scheduled = store.scheduled.map((r) => (r.id === id ? { ...r, date: newDateISO, status: "planned" as const } : r));

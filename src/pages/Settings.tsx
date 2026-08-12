@@ -15,6 +15,7 @@ export function Settings() {
   const [settings, setSettings] = useState<SettingsType | null>(null);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   function load() {
     setError(null);
@@ -52,19 +53,29 @@ export function Settings() {
   function toggleDay(day: ISOWeekday) {
     if (!settings) return;
     setSaved(false);
+    setSaveError(null);
     const has = settings.preferredDays.includes(day);
     if (has) {
       setSettings({ ...settings, preferredDays: settings.preferredDays.filter((d) => d !== day) });
     } else if (settings.preferredDays.length < 3) {
-      setSettings({ ...settings, preferredDays: [...settings.preferredDays, day].sort((a, b) => a - b) });
+      setSettings({ ...settings, preferredDays: [...settings.preferredDays, day] });
+    } else {
+      // Already 3 picked — swap out the oldest pick instead of silently ignoring the tap.
+      const [, ...rest] = settings.preferredDays;
+      setSettings({ ...settings, preferredDays: [...rest, day] });
     }
   }
 
   async function handleSave() {
     if (!settings || settings.preferredDays.length !== 3) return;
-    await dataSource.saveSettings(settings);
-    await dataSource.refreshSchedule();
-    setSaved(true);
+    setSaveError(null);
+    try {
+      await dataSource.saveSettings(settings);
+      await dataSource.regenerateSchedule();
+      setSaved(true);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Couldn't save your settings — try again.");
+    }
   }
 
   async function handleLogout() {
@@ -99,6 +110,7 @@ export function Settings() {
           </div>
         </section>
 
+        {saveError && <p className="text-center text-xs font-bold text-rainbow-pink">{saveError}</p>}
         <Button tone="turquoise" onClick={handleSave} disabled={settings.preferredDays.length !== 3}>
           {saved ? "SAVED ✓" : "SAVE SETTINGS"}
         </Button>

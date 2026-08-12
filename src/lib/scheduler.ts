@@ -127,12 +127,13 @@ export function rescheduleWorkouts(
   // 3. Leftovers become next week's seed queue, preserving cycle order.
   const seedQueue = weekInOriginalOrder.filter((r) => r.status === "missed").map((r) => r.workoutId);
 
-  // 4. Regenerate the future cleanly from here. When this week already had rows, they cover
-  // it fully (by construction) so the future starts the week after. But if this week was
-  // empty — a brand new schedule, or a long gap since this last ran — nothing accounts for
-  // today's remaining preferred days yet, so pick up from today instead of skipping the rest
-  // of this week entirely.
-  const futureAnchor = weekInOriginalOrder.length > 0 ? weekEnd : addDays(today, -1);
+  // 4. Regenerate the future cleanly from wherever the cascade left off. `cursor` already
+  // reflects exactly how much of this week is spoken for: if it's still within the week
+  // (e.g. this week only has one old completed entry, or preferred days just changed and
+  // nothing accounts for the rest of the week yet), resume filling from there instead of
+  // jumping straight to next week. Once the week is genuinely full, cursor has moved past
+  // weekEnd on its own and future generation naturally starts the week after.
+  const futureAnchor = isBefore(weekEnd, cursor) ? weekEnd : addDays(cursor, -1);
   const future = generateSchedule(futureAnchor, weeksAhead, preferredDays, cycle, seedQueue, continueFromIndex);
 
   return [...past, ...thisWeek, ...future];

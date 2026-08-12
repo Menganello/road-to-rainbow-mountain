@@ -99,4 +99,24 @@ describe("rescheduleWorkouts", () => {
       ["2026-08-15", "B"],
     ]);
   });
+
+  it("still fills the rest of this week when it only contains old completed history (e.g. preferred days just changed)", () => {
+    // Monday (2026-08-10) was already completed under the OLD preferred days before the
+    // switch. After changing to Tue/Wed/Sat mid-week, today's and the rest of this week's
+    // slots must still be generated now, not deferred to next week.
+    const scheduled = [row("2026-08-10", "C", "completed")];
+    const result = rescheduleWorkouts(scheduled, {
+      today: "2026-08-11",
+      preferredDays: [2, 3, 6],
+      cycle: CYCLE,
+    });
+    const thisWeekRows = result
+      .filter((r) => r.date >= "2026-08-11" && r.date <= "2026-08-16")
+      .sort((a, b) => (a.date < b.date ? -1 : 1));
+    expect(thisWeekRows.map((r) => [r.date, r.workoutId])).toEqual([
+      ["2026-08-11", "A"],
+      ["2026-08-12", "B"],
+      ["2026-08-15", "C"],
+    ]);
+  });
 });

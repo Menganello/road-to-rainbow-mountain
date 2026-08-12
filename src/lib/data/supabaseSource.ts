@@ -191,6 +191,13 @@ export const supabaseSource: DataSource = {
     }
   },
 
+  async regenerateSchedule() {
+    const client = sb();
+    const { error } = await client.from("scheduled_workouts").delete().eq("status", "planned");
+    if (error) throw error;
+    return supabaseSource.refreshSchedule();
+  },
+
   async moveScheduledWorkout(id, newDateISO) {
     const client = sb();
     const { error } = await client.from("scheduled_workouts").update({ date: newDateISO, status: "planned" }).eq("id", id);
