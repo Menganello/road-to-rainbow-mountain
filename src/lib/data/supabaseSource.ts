@@ -12,20 +12,23 @@ function sb(): SupabaseClient {
 
 /**
  * There's a brief window right after signing in (and potentially after a background-tab
- * token refresh) where the very next request can 401 even though the session is genuinely
- * valid — a one-time retry after a short pause clears it up rather than surfacing a scary
- * error for what's really just a timing hiccup.
+ * token refresh) where the very next request or two can fail with a transient auth-related
+ * error (401, or a 400 from a request that raced the session not being fully ready yet) even
+ * though the session is genuinely valid. These calls are all either pure reads or writes that
+ * set state to a known value (not accumulating inserts), so blindly retrying twice with a
+ * short pause is safe and clears it up rather than surfacing a scary error for a timing hiccup.
  */
 async function withAuthRetry<T>(fn: () => Promise<T>): Promise<T> {
-  try {
-    return await fn();
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    const looksLikeAuthHiccup = message.includes("401") || /jwt|token|auth/i.test(message);
-    if (!looksLikeAuthHiccup) throw err;
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    return fn();
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
+    }
   }
+  throw lastErr;
 }
 
 let refreshInFlight: Promise<ScheduledWorkout[]> | null = null;
@@ -55,6 +58,7 @@ interface ScheduledRow {
   status: "planned" | "completed" | "missed";
 }
 interface SettingsRow {
+  user_id: string;
   preferred_days: number[];
   reminder_time: string;
   reminder_day_before: boolean;
@@ -225,17 +229,21 @@ export const supabaseSource: DataSource = {
   },
 
   async regenerateSchedule() {
-    const client = sb();
-    const { error } = await client.from("scheduled_workouts").delete().eq("status", "planned");
-    if (error) throw error;
-    return supabaseSource.refreshSchedule();
+    return withAuthRetry(async () => {
+      const client = sb();
+      const { error } = await client.from("scheduled_workouts").delete().eq("status", "planned");
+      if (error) throw error;
+      return supabaseSource.refreshSchedule();
+    });
   },
 
   async moveScheduledWorkout(id, newDateISO) {
-    const client = sb();
-    const { error } = await client.from("scheduled_workouts").update({ date: newDateISO, status: "planned" }).eq("id", id);
-    if (error) throw error;
-    return fetchSchedule(client);
+    return withAuthRetry(async () => {
+      const client = sb();
+      const { error } = await client.from("scheduled_workouts").update({ date: newDateISO, status: "planned" }).eq("id", id);
+      if (error) throw error;
+      return fetchSchedule(client);
+    });
   },
 
   async completeWorkout(input) {
@@ -294,21 +302,26 @@ export const supabaseSource: DataSource = {
   },
 
   async saveSettings(patch) {
-    const client = sb();
-    await fetchOrCreateSettings(client); // ensures a row exists to update
-    const { data, error } = await client
-      .from("settings")
-      .update({
-        ...(patch.preferredDays ? { preferred_days: patch.preferredDays } : {}),
-        ...(patch.reminderTime ? { reminder_time: patch.reminderTime } : {}),
-        ...(patch.reminderDayBefore !== undefined ? { reminder_day_before: patch.reminderDayBefore } : {}),
-        ...(patch.reminderSameDay !== undefined ? { reminder_same_day: patch.reminderSameDay } : {}),
-        ...(patch.timezone ? { timezone: patch.timezone } : {}),
-        updated_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
-    if (error) throw error;
-    return toSettings(data as SettingsRow);
+    return withAuthRetry(async () => {
+      const client = sb();
+      const existing = await fetchOrCreateSettings(client); // ensures a row exists to update
+      const { data, error } = await client
+        .from("settings")
+        .update({
+          ...(patch.preferredDays ? { preferred_days: patch.preferredDays } : {}),
+          ...(patch.reminderTime ? { reminder_time: patch.reminderTime } : {}),
+          ...(patch.reminderDayBefore !== undefined ? { reminder_day_before: patch.reminderDayBefore } : {}),
+          ...(patch.reminderSameDay !== undefined ? { reminder_same_day: patch.reminderSameDay } : {}),
+          ...(patch.timezone ? { timezone: patch.timezone } : {}),
+          updated_at: new Date().toISOString(),
+        })
+        // PostgREST rejects an UPDATE with no filter at all, regardless of RLS — a real WHERE
+        // clause is required, not just row-level security scoping it implicitly.
+        .eq("user_id", existing.user_id)
+        .select()
+        .single();
+      if (error) throw error;
+      return toSettings(data as SettingsRow);
+    });
   },
 };
