@@ -127,8 +127,13 @@ export const demoSource: DataSource = {
     store.sessions = [...store.sessions, session];
 
     if (input.scheduledWorkoutId) {
+      // Doing it early (e.g. today's "NEXT" card is actually scheduled for a future date) —
+      // move the date to when it was really done, not when it was planned for.
       const scheduledId = input.scheduledWorkoutId;
-      store.scheduled = store.scheduled.map((r) => (r.id === scheduledId ? { ...r, status: "completed" as const } : r));
+      const doneDate = input.completedAt.slice(0, 10);
+      store.scheduled = store.scheduled.map((r) =>
+        r.id === scheduledId ? { ...r, status: "completed" as const, date: doneDate } : r
+      );
     } else {
       // Ad-hoc start: a new same-day row, additive — any number of these can coexist with
       // each other and with the day's regular scheduled slot.

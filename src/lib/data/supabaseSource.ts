@@ -266,9 +266,13 @@ export const supabaseSource: DataSource = {
     }
 
     if (input.scheduledWorkoutId) {
+      // Doing it early (e.g. today's "NEXT" card is actually scheduled for a future date) —
+      // move the date to when it was really done, not when it was planned for. Calendar/weekly
+      // counts always read off this date, so leaving the old future date meant an early
+      // workout silently didn't count until its originally-planned day arrived.
       const { error: updateError } = await client
         .from("scheduled_workouts")
-        .update({ status: "completed" })
+        .update({ status: "completed", date: input.completedAt.slice(0, 10) })
         .eq("id", input.scheduledWorkoutId);
       if (updateError) throw updateError;
     } else {
