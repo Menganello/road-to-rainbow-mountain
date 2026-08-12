@@ -72,6 +72,21 @@ export function Workouts() {
     await reload();
   }
 
+  async function handleToggleActive(workout: WorkoutWithExercises) {
+    await dataSource.saveWorkout({
+      id: workout.id,
+      name: workout.name,
+      position: workout.position,
+      isActive: !workout.isActive,
+      isCircuit: workout.isCircuit,
+      exercises: workout.exercises.map(toDraft),
+    });
+    // The active set just changed, so the 3x/week rotation needs to reflect it starting
+    // this week, not next — same regeneration used after a preferred-days change.
+    await dataSource.regenerateSchedule();
+    await reload();
+  }
+
   if (loading) {
     return (
       <div className="min-h-dvh bg-rainbow-beige pb-28">
@@ -135,6 +150,7 @@ export function Workouts() {
               workout={w}
               lastCompletedISO={lastCompleted(w.id)}
               onEdit={() => setEditingId(w.id)}
+              onToggleActive={() => void handleToggleActive(w)}
               onStart={() => {
                 primeAudio();
                 navigate(`/session/${w.id}`);
